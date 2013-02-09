@@ -1,0 +1,18 @@
+name: Graph
+version: 0.2.0
+cabal-version: >=1.2
+build-type: Simple
+license: AllRightsReserved
+license-file: ""
+description:  
+data-dir: ""
+ 
+library
+    build-depends: QuickCheck -any, array -any, base -any,
+                   containers -any, split -any, text -any, text-format -any
+    exposed-modules: Graph Graph.IO
+    exposed: True
+    buildable: True
+    hs-source-dirs: src
+    ghc-options: -rtsopts -threaded
+ 
