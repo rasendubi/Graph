@@ -20,11 +20,22 @@ data Graph = Graph {
     edges :: [Edge]
 } deriving (Show)
 
+outVerticesMap :: Graph -> M.Map Vertex [Vertex]
+outVerticesMap (Graph vertices edges) = foldr (\(v,u) m -> M.insertWith (++) v [u] m) beginMap edges
+    where beginMap = M.fromList $ map (,[]) vertices
+
+inVerticesMap :: Graph -> M.Map Vertex [Vertex]
+inVerticesMap (Graph vertices edges) = foldr (\(v,u) m -> M.insertWith (++) u [v] m) beginMap edges
+    where beginMap = M.fromList $ map (,[]) vertices
+
 outVertices :: Graph -> Vertex -> [Vertex]
-outVertices (Graph vertices edges) v = [u | u <- vertices, (v,u) `elem` edges]
+outVertices g v = outVerticesMap g M.! v
+--outVertices (Graph vertices edges) v = [u | u <- vertices, (v,u) `elem` edges]
+
 
 inVertices :: Graph -> Vertex -> [Vertex]
-inVertices (Graph vertices edges) v = [u | u <- vertices, (u,v) `elem` edges]
+inVertices g v = inVerticesMap g M.! v
+--inVertices (Graph vertices edges) v = [u | u <- vertices, (u,v) `elem` edges]
 
 abcAdjacencyMatrix :: (a,a,a) -> Graph -> Array (Vertex, Vertex) a
 abcAdjacencyMatrix (a,b,c) (Graph vertices edges) = array r [((i,j), is i j) | i <- vertices, j <- vertices]
@@ -72,6 +83,7 @@ accessMatrix' = amap (\i -> case i of Nothing   -> 0
 shortestWays :: (Num a, Eq a) => Graph -> Vertex -> M.Map Vertex (Maybe a)
 shortestWays g@(Graph vertices edges) v = shortFold startMap 0 [v]
     where
+        ovm = outVerticesMap g
         startMap = M.fromList $ zip vertices (repeat Nothing)
         shortFold :: (Num a, Eq a) => M.Map Vertex (Maybe a) -> a -> [Vertex] -> M.Map Vertex (Maybe a)
         shortFold m _ [] = m
@@ -79,7 +91,7 @@ shortestWays g@(Graph vertices edges) v = shortFold startMap 0 [v]
             where
                 (newM, newVerts) = foldr sfold (m,[]) verts
                 sfold v old@(m,verts) = if m M.! v == Nothing then (if step /= 0 then M.insert v (Just step) m
-                                                                                 else m, verts ++ outVertices g v)
+                                                                                 else m, verts ++ ovm M.! v)
                                                               else old
 
 verticesDegreeMap :: Num a => Graph -> M.Map Vertex a
@@ -95,7 +107,6 @@ inDeg g = genericLength . inVertices g
 
 deg :: Num a => Graph -> Vertex -> a
 deg g v = inDeg g v + outDeg g v
---deg g v = (verticesDegreeMap g) M.! v
 
 isHomogeneous :: Graph -> Bool
 isHomogeneous g = if homogeneousDegree g == Nothing then False
@@ -119,25 +130,23 @@ isolatedVerticies :: Graph -> [Vertex]
 isolatedVerticies = verticesWithDegree 0
 
 simpleLoops :: Graph -> [Path]
-simpleLoops g = filterUniqueCycles $ concatMap (simpleLoopsFrom g) (map (:[]) $ vertices g)
+simpleLoops g = filterUniqueCycles $ concatMap (simpleLoopsFrom m) (map (:[]) $ vertices g)
     where
+      m = outVerticesMap g
       filterUniqueCycles :: [Path] -> [Path]
       filterUniqueCycles = (flip foldr []) $ \p ac ->
           let cycles = map (concat . replicate 2 . tail) ac :: [Path]
           in if any (p `isInfixOf`) cycles then ac
                                            else p:ac
 
-simpleLoopsFrom :: Graph -> Path -> [Path]
-simpleLoopsFrom g p
-    | isSimpleLoop p  = [p]
-    | otherwise = concatMap (simpleLoopsFrom g) (map (:p) ov)
+simpleLoopsFrom :: M.Map Vertex [Vertex] -> Path -> [Path]
+simpleLoopsFrom m p
+    | isSimpleLoop p = [p]
+    | otherwise = concatMap (simpleLoopsFrom m) (map (:p) ov)
         where
             first = head p
-            ov = filter (not . (`elem` (init p))) $ outVertices g first
-            isSimpleLoop :: Path -> Bool
+            ov = filter (not . (`elem` (init p))) $ m M.! first
             isSimpleLoop p = length p > 1 && head p == last p
-
-
 
 isStronglyConnected :: Graph -> Bool
 isStronglyConnected = all (==1) . elems . accessMatrix'
@@ -154,14 +163,6 @@ isNotConnected = not . isWeaklyConnected
 
 toUndirected :: Graph -> Graph
 toUndirected (Graph vertices edges) = Graph vertices $ concatMap (\x -> [x, swap x]) edges
-
------------------------------------ Unused -------------------------------------------------------
-
-{--
-outVerticesMap :: Graph -> M.Map Vertex [Vertex]
-outVerticesMap (Graph vertices edges) = foldr (\(v,u) m -> M.insertWith (++) v [u] m) beginMap edges
-    where beginMap = M.fromList $ map (,[]) vertices
---}
 
 ----------------------------------- Utils --------------------------------------------------------
 
