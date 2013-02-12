@@ -53,8 +53,8 @@ incedenceMatrix (Graph vertices edges) = array arrayRange
     where
         arrayRange = ((1,1), (length vertices, length edges))
         f e (u,v) | u == v && e == u =  2
-                  | e == u           =  1
-                  | e == v           = -1
+                  | e == u           = -1
+                  | e == v           =  1
                   | otherwise        =  0
 
 
